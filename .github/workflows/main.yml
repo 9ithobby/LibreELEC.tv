@@ -19,3 +19,9 @@ jobs:
         run: |
           export FORCE_UNSAFE_CONFIGURE=1
           PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 make image
+
+      - name: Upload Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LibreELEC-MT7925-Image
+          path: "**/target/*.img.gz"
