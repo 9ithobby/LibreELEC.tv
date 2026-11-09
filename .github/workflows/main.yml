@@ -9,23 +9,31 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup GitHub Cache for Build Data
+      - name: Install All LibreELEC Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y base-files bash bc binutils bison bzip2 coreutils cpio g++ gcc gawk git gzip libncurses5-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev squashfs-tools lz4 \
+          xfonts-utils rdfind libparse-yapp-perl gperf xsltproc libxml-parser-perl patchutils lzop
+
+      - name: Setup GitHub Cache
         uses: actions/cache@v4
         with:
           path: |
             .ccache
             sources/
-          key: le-rockchip-cache-${{ github.ref_name }}
+            build.*/
+          key: le-rockchip-classic-${{ github.ref_name }}
           restore-keys: |
-            le-rockchip-cache-
+            le-rockchip-classic-
 
-      - name: Build Image via Official LibreELEC Docker
+      - name: Build Image (with Root Allow)
         run: |
-          # Nutzt LibreELECs eigenes, isoliertes Docker-Build-System.
-          PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 ./tools/docker/docker-build
+          export FORCE_UNSAFE_CONFIGURE=1
+          PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 make image
 
       - name: Upload Image Artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: LibreELEC-MT7925-Image
-          path: target/*.img.gz
+          path: "**/target/*.img.gz"
