@@ -4,22 +4,17 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install All LibreELEC Dependencies
         run: |
           sudo apt update
-          sudo apt install -y bc bison bzip2 cpio g++ gcc gawk git gzip libncurses5-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev
+          sudo apt install -y base-files bash bc binutils bison bzip2 coreutils cpio g++ gcc gawk git gzip libncurses5-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev squashfs-tools lz4
 
-      - name: Build Image
+      - name: Build Image (with Root Allow)
         run: |
+          export FORCE_UNSAFE_CONFIGURE=1
           PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 make image
-
-      - name: Upload Image
-        uses: actions/upload-artifact@v4
-        with:
-          name: LibreELEC-MT7925-Image
-          path: target/*.img.gz
