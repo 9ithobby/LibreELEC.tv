@@ -1,0 +1,25 @@
+name: Build LibreELEC Rockchip
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y bc bison bzip2 cpio g++ gcc gawk git gzip libncurses5-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev
+
+      - name: Build Image
+        run: |
+          PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 make image
+
+      - name: Upload Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: LibreELEC-MT7925-Image
+          path: target/*.img.gz
