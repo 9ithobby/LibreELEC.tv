@@ -12,7 +12,8 @@ jobs:
       - name: Install All LibreELEC Dependencies
         run: |
           sudo apt update
-          sudo apt install -y base-files bash bc binutils bison bzip2 coreutils cpio g++ gcc gawk git gzip libncurses5-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev squashfs-tools lz4
+          sudo apt install -y base-files bash bc binutils bison bzip2 coreutils cpio g++ gcc gawk git gzip libncurses5-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev squashfs-tools lz4 \
+          xfonts-utils rdfind libparse-yapp-perl gperf xsltproc libxml-parser-perl patchutils lzop
 
       - name: Build Image (with Root Allow)
         run: |
