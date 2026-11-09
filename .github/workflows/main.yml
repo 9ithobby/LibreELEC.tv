@@ -21,7 +21,7 @@ jobs:
 
       - name: Build Image via Official LibreELEC Docker
         run: |
-          # Nutzt LibreELECs eigenes, isoliertes Docker-Build-System
+          # Nutzt LibreELECs eigenes, isoliertes Docker-Build-System.
           PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 ./tools/docker/docker-build
 
       - name: Upload Image Artifact
