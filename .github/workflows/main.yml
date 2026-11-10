@@ -21,7 +21,6 @@ jobs:
           path: |
             .ccache
             sources/
-            build.*/
           key: le-rockchip-classic-${{ github.ref_name }}
           restore-keys: |
             le-rockchip-classic-
@@ -30,10 +29,11 @@ jobs:
         run: |
           export FORCE_UNSAFE_CONFIGURE=1
           PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 make image
+          sudo chmod -R a+rX target/ || true
 
       - name: Upload Image Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: LibreELEC-MT7925-Image
-          path: "**/target/*.img.gz"
+          path: target/*.img.gz
