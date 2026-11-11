@@ -36,10 +36,13 @@ jobs:
           export FORCE_UNSAFE_CONFIGURE=1
           export CCACHE_DIR="$HOME/.ccache-libreelec"
           export CCACHE_MAXSIZE="8G"
+
+          # MT7925-Firmware fest in die LibreELEC-Whitelist eintragen
+          sed -i 's/mediatek\/mt7921/mediatek\/mt7921 mediatek\/mt7925/g' distributions/LibreELEC/options projects/Rockchip/options 2>/dev/null || true
           
           # Bricht nach 315 Minuten (5h 15m) sauber ab, bevor GitHub den Job hart killt
           set +e
-          timeout --signal=SIGINT 315m env PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 make image
+          timeout --signal=SIGINT 315m env PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 UBOOT_SYSTEM=rock-3a make image
           EXIT_CODE=$?
           set -e
 
