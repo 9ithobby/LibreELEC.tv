@@ -9,30 +9,53 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/android
+          df -h
+
       - name: Install All LibreELEC Dependencies
         run: |
           sudo apt update
           sudo apt install -y base-files bash bc binutils bison bzip2 coreutils cpio g++ gcc gawk git gzip libncurses5-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev squashfs-tools lz4 \
-          xfonts-utils rdfind libparse-yapp-perl gperf xsltproc libxml-parser-perl patchutils lzop
+          xfonts-utils rdfind libparse-yapp-perl gperf xsltproc libxml-parser-perl patchutils lzop ccache
 
       - name: Setup GitHub Cache
         uses: actions/cache@v4
         with:
           path: |
-            .ccache
+            ~/.ccache-libreelec
             sources/
-          key: le-rockchip-classic-${{ github.ref_name }}
+          key: le-rockchip-rk356x-${{ github.run_id }}
           restore-keys: |
-            le-rockchip-classic-
+            le-rockchip-rk356x-
 
-      - name: Build Image (with Root Allow)
+      - name: Build Image (mit kontrolliertem 5h15m Timeout)
+        id: build_step
         run: |
           export FORCE_UNSAFE_CONFIGURE=1
-          PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 make image
-          sudo chmod -R a+rX target/ || true
+          export CCACHE_DIR="$HOME/.ccache-libreelec"
+          export CCACHE_MAXSIZE="8G"
+          
+          # Bricht nach 315 Minuten (5h 15m) sauber ab, bevor GitHub den Job hart killt
+          set +e
+          timeout --signal=SIGINT 315m env PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 make image
+          EXIT_CODE=$?
+          set -e
+
+          if [ $EXIT_CODE -eq 124 ] || [ $EXIT_CODE -eq 130 ]; then
+            echo "BUILD_STATUS=timeout" >> $GITHUB_OUTPUT
+            echo "Zeitlimit erreicht! Der bisherige Fortschritt wird im Cache gespeichert. Bitte Workflow erneut starten."
+          elif [ $EXIT_CODE -eq 0 ]; then
+            echo "BUILD_STATUS=success" >> $GITHUB_OUTPUT
+            sudo chmod -R a+rX target/ || true
+          else
+            echo "BUILD_STATUS=failed" >> $GITHUB_OUTPUT
+            exit $EXIT_CODE
+          fi
 
       - name: Upload Image Artifact
-        if: success()
+        if: steps.build_step.outputs.BUILD_STATUS == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: LibreELEC-MT7925-Image
