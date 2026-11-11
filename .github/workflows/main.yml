@@ -17,7 +17,7 @@ jobs:
       - name: Install All LibreELEC Dependencies
         run: |
           sudo apt update
-          sudo apt install -y base-files bash bc binutils bison bzip2 coreutils cpio g++ gcc gawk git gzip libncurses5-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev squashfs-tools lz4 \
+          sudo apt install -y base-files bash bc binutils bison bzip2 coreutils cpio g++ gcc gawk git gzip libncurses-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev squashfs-tools lz4 \
           xfonts-utils rdfind libparse-yapp-perl gperf xsltproc libxml-parser-perl patchutils lzop ccache
 
       - name: Setup GitHub Cache
@@ -45,7 +45,7 @@ jobs:
 
           if [ $EXIT_CODE -eq 124 ] || [ $EXIT_CODE -eq 130 ]; then
             echo "BUILD_STATUS=timeout" >> $GITHUB_OUTPUT
-            echo "Zeitlimit erreicht! Der bisherige Fortschritt wird im Cache gespeichert. Bitte Workflow erneut starten."
+            echo "Zeitlimit erreicht! Der bisherige Fortschritt wird im Cache gespeichert. Bitte Workflow erneut über 'Run workflow' starten."
           elif [ $EXIT_CODE -eq 0 ]; then
             echo "BUILD_STATUS=success" >> $GITHUB_OUTPUT
             sudo chmod -R a+rX target/ || true
