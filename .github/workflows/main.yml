@@ -37,8 +37,11 @@ jobs:
           export CCACHE_DIR="$HOME/.ccache-libreelec"
           export CCACHE_MAXSIZE="8G"
 
-          # MT7925-Firmware fest in die LibreELEC-Whitelist eintragen
-          sed -i 's/mediatek\/mt7921/mediatek\/mt7921 mediatek\/mt7925/g' distributions/LibreELEC/options projects/Rockchip/options 2>/dev/null || true
+          # MT7925-Firmware fest in packages/linux-firmware/package.mk integrieren
+          if ! grep -q "mediatek/mt7925" packages/linux-firmware/package.mk; then
+            sed -i 's|mediatek/mt7921|mediatek/mt7921 mediatek/mt7925|g' packages/linux-firmware/package.mk
+            sed -i '/makeinstall_target()/a \  mkdir -p $INSTALL/usr/lib/kernel-overlays/base/lib/firmware/mediatek && cp -rf mediatek/mt7925 $INSTALL/usr/lib/kernel-overlays/base/lib/firmware/mediatek/' packages/linux-firmware/package.mk
+          fi
           
           # Bricht nach 315 Minuten (5h 15m) sauber ab, bevor GitHub den Job hart killt
           set +e
