@@ -1,4 +1,4 @@
-name: Build LibreELEC Rockchip
+name: Build LibreELEC Rockchip2
 on:
   workflow_dispatch:
 
