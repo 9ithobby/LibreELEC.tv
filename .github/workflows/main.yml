@@ -34,20 +34,20 @@ jobs:
         run: |
           FW_DIR="projects/Rockchip/filesystem/usr/lib/kernel-overlays/base/lib/firmware/mediatek/mt7925"
           mkdir -p "$FW_DIR"
-          HOST="git.kernel.org"
-          PFAD="pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/mediatek/mt7925"
-          curl -fL "https://${HOST}/${PFAD}/WIFI_RAM_CODE_MT7925_1_1.bin" -o "$FW_DIR/WIFI_RAM_CODE_MT7925_1_1.bin"
-          curl -fL "https://${HOST}/${PFAD}/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin" -o "$FW_DIR/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin"
-          curl -fL "https://${HOST}/${PFAD}/BT_RAM_CODE_MT7925_1_1_hdr.bin" -o "$FW_DIR/BT_RAM_CODE_MT7925_1_1_hdr.bin"
+          HOST="gitlab.com"
+          PFAD="kernel-firmware/linux-firmware/-/raw/main/mediatek/mt7925"
+          curl -A "Mozilla/5.0" -fL "https://${HOST}/${PFAD}/WIFI_RAM_CODE_MT7925_1_1.bin" -o "$FW_DIR/WIFI_RAM_CODE_MT7925_1_1.bin"
+          curl -A "Mozilla/5.0" -fL "https://${HOST}/${PFAD}/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin" -o "$FW_DIR/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin"
+          curl -A "Mozilla/5.0" -fL "https://${HOST}/${PFAD}/BT_RAM_CODE_MT7925_1_1_hdr.bin" -o "$FW_DIR/BT_RAM_CODE_MT7925_1_1_hdr.bin"
           ls -lh "$FW_DIR"
 
       - name: Enable Hinlink H68K Device Tree
         run: |
-          OPTS="projects/Rockchip/devices/RK356X/options"
-          if [ -f "$OPTS" ] && ! grep -q "rk3568-hinlink-opc-h68k" "$OPTS"; then
-            sed -i 's/rk3568-rock-3a.dtb/rk3568-rock-3a.dtb rockchip\/rk3568-hinlink-opc-h68k.dtb/g' "$OPTS"
-            grep "KERNEL_DEVICETREE" "$OPTS"
-          fi
+          for FILE in projects/Rockchip/options projects/Rockchip/devices/RK356X/options; do
+            if [ -f "$FILE" ] && ! grep -q "rk3568-hinlink-opc-h68k" "$FILE"; then
+              echo 'KERNEL_DEVICETREE="$KERNEL_DEVICETREE rockchip/rk3568-hinlink-opc-h68k.dtb"' >> "$FILE"
+            fi
+          done
 
       - name: Build Image (mit kontrolliertem 5h15m Timeout)
         id: build_step
