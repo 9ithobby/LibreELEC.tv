@@ -30,19 +30,23 @@ jobs:
           restore-keys: |
             le-rockchip-rk356x-
 
+      - name: Download MT7925 Firmware into Project Overlay
+        run: |
+          FW_DIR="projects/Rockchip/filesystem/usr/lib/kernel-overlays/base/lib/firmware/mediatek/mt7925"
+          mkdir -p "$FW_DIR"
+          HOST="git.kernel.org"
+          PFAD="pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/mediatek/mt7925"
+          curl -fL "https://${HOST}/${PFAD}/WIFI_RAM_CODE_MT7925_1_1.bin" -o "$FW_DIR/WIFI_RAM_CODE_MT7925_1_1.bin"
+          curl -fL "https://${HOST}/${PFAD}/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin" -o "$FW_DIR/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin"
+          curl -fL "https://${HOST}/${PFAD}/BT_RAM_CODE_MT7925_1_1_hdr.bin" -o "$FW_DIR/BT_RAM_CODE_MT7925_1_1_hdr.bin"
+          ls -lh "$FW_DIR"
+
       - name: Build Image (mit kontrolliertem 5h15m Timeout)
         id: build_step
         run: |
           export FORCE_UNSAFE_CONFIGURE=1
           export CCACHE_DIR="$HOME/.ccache-libreelec"
           export CCACHE_MAXSIZE="8G"
-
-          # Pfad zur linux-firmware package.mk dynamisch finden und MT7925-Firmware ergänzen
-          FW_PKG=$(find packages -path "*/linux-firmware/package.mk" | head -n 1)
-          if [ -n "$FW_PKG" ] && ! grep -q "mediatek/mt7925" "$FW_PKG"; then
-            echo "Patche $FW_PKG für MT7925 WLAN & Bluetooth Firmware..."
-            printf '\npost_makeinstall_target() {\n  mkdir -p $INSTALL/usr/lib/kernel-overlays/base/lib/firmware/mediatek\n  if [ -d "${PKG_BUILD}/mediatek/mt7925" ]; then\n    cp -rf "${PKG_BUILD}/mediatek/mt7925" "$INSTALL/usr/lib/kernel-overlays/base/lib/firmware/mediatek/"\n  fi\n}\n' >> "$FW_PKG"
-          fi
           
           # Bricht nach 315 Minuten (5h 15m) sauber ab, bevor GitHub den Job hart killt
           set +e
