@@ -37,10 +37,11 @@ jobs:
           export CCACHE_DIR="$HOME/.ccache-libreelec"
           export CCACHE_MAXSIZE="8G"
 
-          # MT7925-Firmware fest in packages/linux-firmware/package.mk integrieren
-          if ! grep -q "mediatek/mt7925" packages/linux-firmware/package.mk; then
-            sed -i 's|mediatek/mt7921|mediatek/mt7921 mediatek/mt7925|g' packages/linux-firmware/package.mk
-            sed -i '/makeinstall_target()/a \  mkdir -p $INSTALL/usr/lib/kernel-overlays/base/lib/firmware/mediatek && cp -rf mediatek/mt7925 $INSTALL/usr/lib/kernel-overlays/base/lib/firmware/mediatek/' packages/linux-firmware/package.mk
+          # Pfad zur linux-firmware package.mk dynamisch finden und MT7925-Firmware ergänzen
+          FW_PKG=$(find packages -path "*/linux-firmware/package.mk" | head -n 1)
+          if [ -n "$FW_PKG" ] && ! grep -q "mediatek/mt7925" "$FW_PKG"; then
+            echo "Patche $FW_PKG für MT7925 WLAN & Bluetooth Firmware..."
+            printf '\npost_makeinstall_target() {\n  mkdir -p $INSTALL/usr/lib/kernel-overlays/base/lib/firmware/mediatek\n  if [ -d "${PKG_BUILD}/mediatek/mt7925" ]; then\n    cp -rf "${PKG_BUILD}/mediatek/mt7925" "$INSTALL/usr/lib/kernel-overlays/base/lib/firmware/mediatek/"\n  fi\n}\n' >> "$FW_PKG"
           fi
           
           # Bricht nach 315 Minuten (5h 15m) sauber ab, bevor GitHub den Job hart killt
