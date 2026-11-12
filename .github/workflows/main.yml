@@ -41,6 +41,14 @@ jobs:
           curl -fL "https://${HOST}/${PFAD}/BT_RAM_CODE_MT7925_1_1_hdr.bin" -o "$FW_DIR/BT_RAM_CODE_MT7925_1_1_hdr.bin"
           ls -lh "$FW_DIR"
 
+      - name: Enable Hinlink H68K Device Tree
+        run: |
+          OPTS="projects/Rockchip/devices/RK356X/options"
+          if [ -f "$OPTS" ] && ! grep -q "rk3568-hinlink-opc-h68k" "$OPTS"; then
+            sed -i 's/rk3568-rock-3a.dtb/rk3568-rock-3a.dtb rockchip\/rk3568-hinlink-opc-h68k.dtb/g' "$OPTS"
+            grep "KERNEL_DEVICETREE" "$OPTS"
+          fi
+
       - name: Build Image (mit kontrolliertem 5h15m Timeout)
         id: build_step
         run: |
