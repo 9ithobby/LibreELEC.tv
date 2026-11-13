@@ -1,4 +1,4 @@
-name: Build LibreELEC Rockchip2
+name: Build LibreELEC Rockchip H68K (Auto)
 on:
   workflow_dispatch:
 
@@ -30,24 +30,44 @@ jobs:
           restore-keys: |
             le-rockchip-rk356x-
 
-      - name: Download MT7925 Firmware into Project Overlay
+      - name: Download MT7925 & RTL8125 Firmware into Project Overlay
         run: |
-          FW_DIR="projects/Rockchip/filesystem/usr/lib/kernel-overlays/base/lib/firmware/mediatek/mt7925"
-          mkdir -p "$FW_DIR"
-          HOST="gitlab.com"
-          PFAD="kernel-firmware/linux-firmware/-/raw/main/mediatek/mt7925"
-          curl -A "Mozilla/5.0" -fL "https://${HOST}/${PFAD}/WIFI_RAM_CODE_MT7925_1_1.bin" -o "$FW_DIR/WIFI_RAM_CODE_MT7925_1_1.bin"
-          curl -A "Mozilla/5.0" -fL "https://${HOST}/${PFAD}/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin" -o "$FW_DIR/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin"
-          curl -A "Mozilla/5.0" -fL "https://${HOST}/${PFAD}/BT_RAM_CODE_MT7925_1_1_hdr.bin" -o "$FW_DIR/BT_RAM_CODE_MT7925_1_1_hdr.bin"
-          ls -lh "$FW_DIR"
+          BASE_FW="projects/Rockchip/filesystem/usr/lib/kernel-overlays/base/lib/firmware"
+          MT_DIR="$BASE_FW/mediatek/mt7925"
+          RTL_DIR="$BASE_FW/rtl_nic"
+          mkdir -p "$MT_DIR" "$RTL_DIR"
+          
+          HOST="git.kernel.org"
+          PFAD="pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain"
+          
+          # MediaTek MT7925 (WLAN / Bluetooth)
+          curl -fL "https://${HOST}/${PFAD}/mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin" -o "$MT_DIR/WIFI_RAM_CODE_MT7925_1_1.bin"
+          curl -fL "https://${HOST}/${PFAD}/mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin" -o "$MT_DIR/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin"
+          curl -fL "https://${HOST}/${PFAD}/mediatek/mt7925/BT_RAM_CODE_MT7925_1_1_hdr.bin" -o "$MT_DIR/BT_RAM_CODE_MT7925_1_1_hdr.bin"
+          
+          # Realtek RTL8125 (2.5GbE Netzwerk)
+          curl -fL "https://${HOST}/${PFAD}/rtl_nic/rtl8125b-2.fw" -o "$RTL_DIR/rtl8125b-2.fw"
+          
+          ls -lh "$MT_DIR" "$RTL_DIR"
 
-      - name: Enable Hinlink H68K Device Tree
+      - name: Configure Hinlink H68K DTB, eMMC Fix & Auto-extlinux
         run: |
-          for FILE in projects/Rockchip/options projects/Rockchip/devices/RK356X/options; do
-            if [ -f "$FILE" ] && ! grep -q "rk3568-hinlink-opc-h68k" "$FILE"; then
-              echo 'KERNEL_DEVICETREE="$KERNEL_DEVICETREE rockchip/rk3568-hinlink-opc-h68k.dtb"' >> "$FILE"
+          # 1. H68K DTB in den Build aufnehmen
+          echo 'KERNEL_DEVICETREE="$KERNEL_DEVICETREE rk3568-hinlink-opc-h68k.dtb"' >> projects/Rockchip/devices/RK356X/options
+          
+          # 2. eMMC-Timing im H68K DTS via post_patch Hook stabilisieren (verhindert "unable to mount" nach Resize)
+          cat << 'EOF' >> packages/linux/package.mk
+          post_patch_target() {
+            DTS_FILE="$PKG_BUILD/arch/arm64/boot/dts/rockchip/rk3568-hinlink-opc-h68k.dts"
+            if [ -f "$DTS_FILE" ]; then
+              sed -i 's/mmc-hs400-1_8v;/mmc-hs200-1_8v;/g' "$DTS_FILE"
+              sed -i '/mmc-hs400-enhanced-strobe;/d' "$DTS_FILE"
             fi
-          done
+          }
+          EOF
+
+          # 3. extlinux.conf beim Image-Bau automatisch auf rk3568-hinlink-opc-h68k.dtb umstellen
+          find projects/Rockchip -type f \( -name "mkimage" -o -name "extlinux.conf" -o -name "options" \) -exec sed -i 's/rk3568-rock-3a\.dtb/rk3568-hinlink-opc-h68k.dtb/g' {} +
 
       - name: Build Image (mit kontrolliertem 5h15m Timeout)
         id: build_step
@@ -77,5 +97,5 @@ jobs:
         if: steps.build_step.outputs.BUILD_STATUS == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: LibreELEC-MT7925-Image
+          name: LibreELEC-H68K-Auto-Image
           path: target/*.img.gz
