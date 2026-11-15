@@ -1,4 +1,4 @@
-name: Build LibreELEC Rockchip H68K (Auto)
+name: Build LibreELEC Rockchip H68K (Fixed)
 on:
   workflow_dispatch:
 
@@ -18,7 +18,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y base-files bash bc binutils bison bzip2 coreutils cpio g++ gcc gawk git gzip libncurses-dev libssl-dev make patch perl python3 rsync sed tar texinfo u-boot-tools unzip wget xz-utils zlib1g-dev squashfs-tools lz4 \
-          xfonts-utils rdfind libparse-yapp-perl gperf xsltproc libxml-parser-perl patchutils lzop ccache
+          xfonts-utils rdfind libparse-yapp-perl gperf xsltproc libxml-parser-perl patchutils lzop ccache mtools
 
       - name: Setup GitHub Cache
         uses: actions/cache@v4
@@ -26,9 +26,9 @@ jobs:
           path: |
             ~/.ccache-libreelec
             sources/
-          key: le-rockchip-rk356x-${{ github.run_id }}
+          key: le-rockchip-rk356x-v2-${{ github.run_id }}
           restore-keys: |
-            le-rockchip-rk356x-
+            le-rockchip-rk356x-v2-
 
       - name: Download MT7925 & RTL8125 Firmware into Project Overlay
         run: |
@@ -50,24 +50,13 @@ jobs:
           
           ls -lh "$MT_DIR" "$RTL_DIR"
 
-      - name: Configure Hinlink H68K DTB, eMMC Fix & Auto-extlinux
+      - name: Configure Hinlink H68K DTB & Fix eMMC Timing
         run: |
-          # 1. H68K DTB in den Build aufnehmen
-          echo 'KERNEL_DEVICETREE="$KERNEL_DEVICETREE rk3568-hinlink-opc-h68k.dtb"' >> projects/Rockchip/devices/RK356X/options
+          # 1. H68K DTB sauber zur Liste hinzufügen (rock-3a bleibt erhalten, damit mkimage nicht abbricht)
+          sed -i 's/KERNEL_DEVICETREE="/KERNEL_DEVICETREE="rk3568-hinlink-opc-h68k.dtb /g' projects/Rockchip/devices/RK356X/options
           
-          # 2. eMMC-Timing im H68K DTS via post_patch Hook stabilisieren (verhindert "unable to mount" nach Resize)
-          cat << 'EOF' >> packages/linux/package.mk
-          post_patch_target() {
-            DTS_FILE="$PKG_BUILD/arch/arm64/boot/dts/rockchip/rk3568-hinlink-opc-h68k.dts"
-            if [ -f "$DTS_FILE" ]; then
-              sed -i 's/mmc-hs400-1_8v;/mmc-hs200-1_8v;/g' "$DTS_FILE"
-              sed -i '/mmc-hs400-enhanced-strobe;/d' "$DTS_FILE"
-            fi
-          }
-          EOF
-
-          # 3. extlinux.conf beim Image-Bau automatisch auf rk3568-hinlink-opc-h68k.dtb umstellen
-          find projects/Rockchip -type f \( -name "mkimage" -o -name "extlinux.conf" -o -name "options" \) -exec sed -i 's/rk3568-rock-3a\.dtb/rk3568-hinlink-opc-h68k.dtb/g' {} +
+          # 2. Den eMMC HS400->HS200 Fix direkt in das Build-Skript des Linux-Pakets vor make_target einfügen
+          sed -i '/make_target() {/a \  sed -i "s/mmc-hs400-1_8v;/mmc-hs200-1_8v;/g; /mmc-hs400-enhanced-strobe;/d" $PKG_BUILD/arch/arm64/boot/dts/rockchip/rk3568-hinlink-opc-h68k.dts || true' packages/linux/package.mk
 
       - name: Build Image (mit kontrolliertem 5h15m Timeout)
         id: build_step
@@ -76,7 +65,6 @@ jobs:
           export CCACHE_DIR="$HOME/.ccache-libreelec"
           export CCACHE_MAXSIZE="8G"
           
-          # Bricht nach 315 Minuten (5h 15m) sauber ab, bevor GitHub den Job hart killt
           set +e
           timeout --signal=SIGINT 315m env PROJECT=Rockchip DEVICE=RK356X ARCH=aarch64 UBOOT_SYSTEM=rock-3a make image
           EXIT_CODE=$?
@@ -84,18 +72,49 @@ jobs:
 
           if [ $EXIT_CODE -eq 124 ] || [ $EXIT_CODE -eq 130 ]; then
             echo "BUILD_STATUS=timeout" >> $GITHUB_OUTPUT
-            echo "Zeitlimit erreicht! Der bisherige Fortschritt wird im Cache gespeichert. Bitte Workflow erneut über 'Run workflow' starten."
           elif [ $EXIT_CODE -eq 0 ]; then
             echo "BUILD_STATUS=success" >> $GITHUB_OUTPUT
-            sudo chmod -R a+rX target/ || true
           else
             echo "BUILD_STATUS=failed" >> $GITHUB_OUTPUT
             exit $EXIT_CODE
           fi
 
+      - name: Patch extlinux.conf inside built Image to use H68K DTB
+        if: steps.build_step.outputs.BUILD_STATUS == 'success'
+        run: |
+          IMG_GZ=$(ls target/*.img.gz | head -n 1)
+          gunzip "$IMG_GZ"
+          IMG_FILE="${IMG_GZ%.gz}"
+          
+          # Loop-Device für das Image einrichten und erste Partition (FAT32 Boot) mounten
+          LOOP_DEV=$(sudo losetup --find --show --partscan "$IMG_FILE")
+          mkdir -p /mnt/le_boot
+          sudo mount "${LOOP_DEV}p1" /mnt/le_boot
+          
+          echo "Inhalt von /mnt/le_boot vor dem Patch:"
+          ls -la /mnt/le_boot
+          cat /mnt/le_boot/extlinux/extlinux.conf
+          
+          # Prüfen ob rk3568-hinlink-opc-h68k.dtb existiert und in extlinux.conf eintragen
+          if [ -f /mnt/le_boot/rk3568-hinlink-opc-h68k.dtb ]; then
+            sudo sed -i 's/rk3568-rock-3a\.dtb/rk3568-hinlink-opc-h68k.dtb/g' /mnt/le_boot/extlinux/extlinux.conf
+            echo "ERFOLG: extlinux.conf auf rk3568-hinlink-opc-h68k.dtb umgestellt!"
+          else
+            echo "FEHLER: rk3568-hinlink-opc-h68k.dtb wurde nicht in die Boot-Partition kopiert!"
+            exit 1
+          fi
+          
+          cat /mnt/le_boot/extlinux/extlinux.conf
+          sudo umount /mnt/le_boot
+          sudo losetup -d "$LOOP_DEV"
+          
+          # Image wieder komprimieren
+          gzip -9 "$IMG_FILE"
+          sudo chmod -R a+rX target/ || true
+
       - name: Upload Image Artifact
         if: steps.build_step.outputs.BUILD_STATUS == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: LibreELEC-H68K-Auto-Image
+          name: LibreELEC-H68K-Fixed-Image
           path: target/*.img.gz
