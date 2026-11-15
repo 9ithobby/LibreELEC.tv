@@ -96,7 +96,7 @@ jobs:
           
           # Loop-Device für das Image einrichten und erste Partition (FAT32 Boot) mounten
           LOOP_DEV=$(sudo losetup --find --show --partscan "$IMG_FILE")
-          mkdir -p /mnt/le_boot
+          sudo mkdir -p /mnt/le_boot
           sudo mount "${LOOP_DEV}p1" /mnt/le_boot
           
           echo "Inhalt von /mnt/le_boot vor dem Patch:"
