@@ -29,6 +29,14 @@ jobs:
           key: le-rockchip-rk356x-v2-${{ github.run_id }}
           restore-keys: |
             le-rockchip-rk356x-v2-
+            le-rockchip-rk356x-
+
+      - name: Fix CMake Download Fallback (GitHub Mirror)
+        run: |
+          mkdir -p sources/cmake
+          if [ ! -f "sources/cmake/cmake-4.4.5.tar.gz" ]; then
+            curl -fL "https://github.com" -o "sources/cmake/cmake-4.4.5.tar.gz"
+          fi
 
       - name: Download MT7925 & RTL8125 Firmware into Project Overlay
         run: |
