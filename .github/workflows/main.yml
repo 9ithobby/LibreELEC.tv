@@ -99,20 +99,28 @@ jobs:
           sudo mkdir -p /mnt/le_boot
           sudo mount "${LOOP_DEV}p1" /mnt/le_boot
           
-          echo "Inhalt von /mnt/le_boot vor dem Patch:"
-          ls -la /mnt/le_boot
-          cat /mnt/le_boot/extlinux/extlinux.conf
+          echo "Inhalt von /mnt/le_boot/rockchip:"
+          ls -la /mnt/le_boot/rockchip || true
           
-          # Prüfen ob rk3568-hinlink-opc-h68k.dtb existiert und in extlinux.conf eintragen
-          if [ -f /mnt/le_boot/rk3568-hinlink-opc-h68k.dtb ]; then
-            sudo sed -i 's/rk3568-rock-3a\.dtb/rk3568-hinlink-opc-h68k.dtb/g' /mnt/le_boot/extlinux/extlinux.conf
-            echo "ERFOLG: extlinux.conf auf rk3568-hinlink-opc-h68k.dtb umgestellt!"
-          else
-            echo "FEHLER: rk3568-hinlink-opc-h68k.dtb wurde nicht in die Boot-Partition kopiert!"
-            exit 1
+          # Falls H68K DTB noch nicht in /mnt/le_boot/rockchip liegt, aus dem Build-Verzeichnis kopieren
+          if [ ! -f /mnt/le_boot/rockchip/rk3568-hinlink-opc-h68k.dtb ]; then
+            BUILT_DTB=$(find build.* -name "rk3568-hinlink-opc-h68k.dtb" | head -n 1)
+            if [ -n "$BUILT_DTB" ]; then
+              sudo mkdir -p /mnt/le_boot/rockchip
+              sudo cp "$BUILT_DTB" /mnt/le_boot/rockchip/
+              echo "H68K DTB aus Build-Ordner nach /mnt/le_boot/rockchip/ kopiert."
+            else
+              echo "FEHLER: rk3568-hinlink-opc-h68k.dtb wurde gar nicht kompiliert!"
+              exit 1
+            fi
           fi
           
+          # FDTDIR / durch explizites FDT /rockchip/rk3568-hinlink-opc-h68k.dtb ersetzen
+          sudo sed -i 's|FDTDIR /|FDT /rockchip/rk3568-hinlink-opc-h68k.dtb|g' /mnt/le_boot/extlinux/extlinux.conf
+          
+          echo "Neue extlinux.conf:"
           cat /mnt/le_boot/extlinux/extlinux.conf
+          
           sudo umount /mnt/le_boot
           sudo losetup -d "$LOOP_DEV"
           
